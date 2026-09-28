@@ -1,6 +1,6 @@
-# Gateway и Ledger
+# Домашнее задание 2
 
-Два отдельных Go-модуля в одном репозитории.
+Проект состоит из двух отдельных Go-модулей.
 
 ## Gateway
 
@@ -11,7 +11,11 @@ cd functions/gateway
 go run .
 ```
 
-Сервер слушает `http://localhost:8080`. Проверка:
+Прослушиватель `http://localhost:8080`.
+
+![alt text](../docs/functions/image.png)
+
+Проверка:
 
 ```powershell
 curl.exe http://localhost:8080/ping
@@ -19,13 +23,15 @@ curl.exe http://localhost:8080/ping
 
 Ожидаемый ответ: `pong`.
 
+![alt text](../docs/functions/image-1.png)
+
 ## Ledger
 
-Бизнес-логика. При запуске печатает `Ledger service started`, добавляет три тестовые транзакции в память и выводит список.
+Бизнес-логика (финансовые транзакции).
 
 ```powershell
 cd functions/ledger
 go run .
 ```
 
-gRPC-сервер пока не поднимается: модуль только стартует и показывает транзакции в консоли.
+![alt text](../docs/functions/image-2.png)
