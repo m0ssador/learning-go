@@ -1,0 +1,12 @@
+[
+  {
+    "Category": "еда",
+    "Limit": 5000,
+    "Period": "month"
+  },
+  {
+    "Category": "транспорт",
+    "Limit": 200,
+    "Period": "month"
+  }
+]
