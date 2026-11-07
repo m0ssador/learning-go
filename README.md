@@ -58,3 +58,14 @@ curl http://localhost:8080/api/budgets
 ```
 
 В PowerShell те же запросы вызываются через `curl.exe`. Продолжение строки — обратная кавычка, а не `\`.
+
+## Тесты
+
+Команды запускаются из каталога сервиса, `functions/ledger` или `functions/gateway`:
+
+```powershell
+go test ./... -cover -coverprofile=cover.out
+go tool cover -html=cover.out -o cover.html
+```
+
+Покрытие тестами ~50% по сводному профилю обоих модулей. `go tool cover -func` даёт 41.9% для Ledger и 63.3% для Gateway: в сумму входят `cmd/ledger` и `main` Gateway, у них нет тестов. Сами пакеты с тестами выше: `ledger` 65.0%, `gateway/internal/api` 82.0%.
