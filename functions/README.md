@@ -92,3 +92,39 @@ Ledger. Покрытие пакета `ledger` — 65.0%, по модулю вм
 Gateway. Покрытие `internal/api` — 82.0%, по модулю вместе с `main` — 63.3%.
 
 ![alt text](../docs/functions/image-8.png)
+
+# Домашнее задание 7
+
+Ledger пишет бюджеты и расходы в PostgreSQL. 
+
+Миграции Goose лежат в `functions/ledger/migrations`: таблицы `budgets` и `expenses`. 
+
+Подключение идёт через `sql.Open("pgx", dsn)` и `Ping`. 
+
+Строка берётся из `DATABASE_URL`, иначе из `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS` и `DB_NAME`. 
+
+По умолчанию база `cashapp` на `localhost:5432`, пользователь `postgres`, `sslmode=disable`. 
+
+Пул: 10 открытых соединений, 5 простаивающих, время жизни соединения 30 минут.
+
+`SetBudget` делает upsert по категории. `AddTransaction` сначала вызывает `Validate`, затем сверяет сумму расходов с лимитом. Если сумма больше лимита, возвращается `budget exceeded` и строка не вставляется. `GetReportSummary` кладёт итог в Redis на 30 секунд, ключ `report:summary:<from>:<to>`. Список бюджетов кэшируется ключом `budgets:all` на 30 секунд и сбрасывается после успешного `SetBudget`.
+
+Миграция вниз и вверх, версия базы 1:
+
+![alt text](../docs/functions/image-9.png)
+
+Запуск Gateway. В журнале есть подключение к PostgreSQL и Redis, затем `cache miss` и `cache hit` для одного и того же отчёта:
+
+![alt text](../docs/functions/image-10.png)
+
+Бюджет `еда` 5000, расход 450, отказ `409` на сумму сверх лимита:
+
+![alt text](../docs/functions/image-11.png)
+
+Два одинаковых запроса `GET /api/reports/summary?from=2025-09-01&to=2025-09-30`. 
+
+![alt text](../docs/functions/image-12.png)
+
+Gateway перезапущен. Ключ `budgets:all` перед чтением удалён из Redis, в журнале `cache miss`:
+
+![alt text](../docs/functions/image-13.png)

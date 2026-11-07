@@ -9,6 +9,10 @@ import (
 )
 
 func main() {
+	if err := ledger.Connect(); err != nil {
+		fmt.Printf("не удалось подключиться к базе: %v\n", err)
+		os.Exit(1)
+	}
 	fmt.Println("Ledger service started")
 
 	checks := []struct {
@@ -64,7 +68,11 @@ func main() {
 	}
 
 	fmt.Println("Budgets:")
-	for _, b := range ledger.ListBudgets() {
+	budgets, err := ledger.ListBudgets()
+	if err != nil {
+		fmt.Printf("не удалось прочитать бюджеты: %v\n", err)
+	}
+	for _, b := range budgets {
 		fmt.Printf("Category=%s Limit=%.2f Period=%s\n", b.Category, b.Limit, b.Period)
 	}
 
@@ -142,7 +150,11 @@ func main() {
 	}
 
 	fmt.Println("Transactions:")
-	for _, tx := range ledger.ListTransactions() {
+	transactions, err := ledger.ListTransactions()
+	if err != nil {
+		fmt.Printf("не удалось прочитать транзакции: %v\n", err)
+	}
+	for _, tx := range transactions {
 		fmt.Printf("ID=%d Amount=%.2f Category=%s Description=%s Date=%s\n",
 			tx.ID, tx.Amount, tx.Category, tx.Description, tx.Date)
 	}

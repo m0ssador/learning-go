@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"errors"
+	"os"
 	"testing"
 )
 
@@ -90,7 +91,20 @@ func TestBudgetValidate(t *testing.T) {
 	}
 }
 
+func TestMain(m *testing.M) {
+	if os.Getenv("DATABASE_URL") != "" {
+		if err := Connect(); err != nil {
+			os.Stderr.WriteString(err.Error() + "\n")
+			os.Exit(1)
+		}
+	}
+	os.Exit(m.Run())
+}
+
 func TestAddTransactionBudgetLimit(t *testing.T) {
+	if !Connected() {
+		t.Skip("DATABASE_URL is not set")
+	}
 	Reset()
 	t.Cleanup(Reset)
 
@@ -104,7 +118,8 @@ func TestAddTransactionBudgetLimit(t *testing.T) {
 	})
 	assertNoError(t, err)
 
-	before := len(ListTransactions())
+	before, err := ListTransactions()
+	assertNoError(t, err)
 	_, err = AddTransaction(Transaction{
 		Amount:      4000,
 		Category:    "еда",
@@ -114,8 +129,10 @@ func TestAddTransactionBudgetLimit(t *testing.T) {
 	if !errors.Is(err, ErrBudgetExceeded) {
 		t.Fatalf("got %v, want budget exceeded", err)
 	}
-	if got := len(ListTransactions()); got != before {
-		t.Fatalf("transactions after reject: %d, want %d", got, before)
+	after, err := ListTransactions()
+	assertNoError(t, err)
+	if len(after) != len(before) {
+		t.Fatalf("transactions after reject: %d, want %d", len(after), len(before))
 	}
 }
 

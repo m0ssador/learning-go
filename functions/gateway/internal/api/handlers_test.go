@@ -6,12 +6,26 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/m0ssador/learning-go/functions/ledger"
 )
 
+func TestMain(m *testing.M) {
+	if os.Getenv("DATABASE_URL") != "" {
+		if err := ledger.Connect(); err != nil {
+			os.Stderr.WriteString(err.Error() + "\n")
+			os.Exit(1)
+		}
+	}
+	os.Exit(m.Run())
+}
+
 func TestBudgetsAPI(t *testing.T) {
+	if !ledger.Connected() {
+		t.Skip("DATABASE_URL is not set")
+	}
 	srv := newAPIServer(t)
 
 	t.Run("ok", func(t *testing.T) {
@@ -69,6 +83,9 @@ func TestBudgetsAPI(t *testing.T) {
 }
 
 func TestTransactionsAPI(t *testing.T) {
+	if !ledger.Connected() {
+		t.Skip("DATABASE_URL is not set")
+	}
 	srv := newAPIServer(t)
 
 	t.Run("ok", func(t *testing.T) {

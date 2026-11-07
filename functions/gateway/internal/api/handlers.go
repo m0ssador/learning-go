@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/m0ssador/learning-go/functions/ledger"
 )
@@ -59,7 +60,12 @@ func createTransaction(w http.ResponseWriter, r *http.Request) {
 }
 
 func listTransactions(w http.ResponseWriter, _ *http.Request) {
-	items := ledger.ListTransactions()
+	items, err := ledger.ListTransactions()
+	if err != nil {
+		log.Printf("list transactions: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
 	out := make([]TransactionResponse, 0, len(items))
 	for _, tx := range items {
 		out = append(out, TransactionResponseFrom(tx))
@@ -89,10 +95,45 @@ func createBudget(w http.ResponseWriter, r *http.Request) {
 }
 
 func listBudgets(w http.ResponseWriter, _ *http.Request) {
-	items := ledger.ListBudgets()
+	items, err := ledger.ListBudgets()
+	if err != nil {
+		log.Printf("list budgets: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
 	out := make([]BudgetResponse, 0, len(items))
 	for _, b := range items {
 		out = append(out, BudgetResponseFrom(b))
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+func Summary(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	from, err := time.Parse(time.DateOnly, r.URL.Query().Get("from"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid date")
+		return
+	}
+	to, err := time.Parse(time.DateOnly, r.URL.Query().Get("to"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid date")
+		return
+	}
+	if from.After(to) {
+		writeError(w, http.StatusBadRequest, "invalid date")
+		return
+	}
+
+	items, err := ledger.GetReportSummary(r.Context(), from, to)
+	if err != nil {
+		log.Printf("report summary: %v", err)
+		writeError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
 }
