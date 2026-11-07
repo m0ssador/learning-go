@@ -12,6 +12,28 @@ func main() {
 	budgets = make(map[string]Budget)
 	fmt.Println("Ledger service started")
 
+	checks := []struct {
+		name string
+		v    Validatable
+	}{
+		{"Transaction", Transaction{Amount: 100, Category: "еда", Date: "2026-10-01"}},
+		{"Transaction", Transaction{Amount: 0, Category: "еда", Date: "2026-10-01"}},
+		{"Transaction", Transaction{Amount: -5, Category: "еда", Date: "2026-10-01"}},
+		{"Transaction", Transaction{Amount: 10, Category: "", Date: "2026-10-01"}},
+		{"Budget", Budget{Category: "еда", Limit: 5000, Period: "month"}},
+		{"Budget", Budget{Category: "", Limit: 5000}},
+		{"Budget", Budget{Category: "еда", Limit: 0}},
+		{"Budget", Budget{Category: "еда", Limit: -100}},
+	}
+	fmt.Println("CheckValid:")
+	for _, check := range checks {
+		if err := CheckValid(check.v); err != nil {
+			fmt.Printf("отказ: %s: %v\n", check.name, err)
+			continue
+		}
+		fmt.Printf("ok: %s\n", check.name)
+	}
+
 	f, err := os.Open("budgets.json")
 	if err != nil {
 		fmt.Printf("не удалось открыть budgets.json: %v\n", err)
@@ -22,11 +44,25 @@ func main() {
 		}
 	}
 
-	SetBudget(Budget{
+	if err := SetBudget(Budget{
 		Category: "жильё",
 		Limit:    10000,
 		Period:   "month",
-	})
+	}); err != nil {
+		fmt.Printf("отказ: бюджет не установлен: %v\n", err)
+	}
+
+	invalidBudgets := []Budget{
+		{Category: "", Limit: 1000},
+		{Category: "еда", Limit: 0},
+		{Category: "еда", Limit: -1},
+	}
+	for _, b := range invalidBudgets {
+		if err := SetBudget(b); err != nil {
+			fmt.Printf("отказ: бюджет не установлен (категория %q, лимит %.2f): %v\n",
+				b.Category, b.Limit, err)
+		}
+	}
 
 	fmt.Println("Budgets:")
 	printBudgets()
@@ -73,6 +109,24 @@ func main() {
 			Category:    "развлечения",
 			Description: "кино, бюджета на категорию нет",
 			Date:        "2026-09-29",
+		},
+		{
+			Amount:      0,
+			Category:    "еда",
+			Description: "нулевая сумма",
+			Date:        "2026-09-30",
+		},
+		{
+			Amount:      -20,
+			Category:    "еда",
+			Description: "отрицательная сумма",
+			Date:        "2026-09-30",
+		},
+		{
+			Amount:      50,
+			Category:    "",
+			Description: "пустая категория",
+			Date:        "2026-09-30",
 		},
 	}
 

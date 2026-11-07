@@ -12,9 +12,22 @@ type Transaction struct {
 
 var transactions []Transaction
 
+func (t Transaction) Validate() error {
+	if t.Amount == 0 {
+		return errors.New("transaction amount must not be zero")
+	}
+	if t.Amount < 0 {
+		return errors.New("transaction amount must not be negative")
+	}
+	if t.Category == "" {
+		return errors.New("transaction category must not be empty")
+	}
+	return nil
+}
+
 func AddTransaction(tx Transaction) error {
-	if tx.Amount == 0 {
-		return errors.New("transaction amount must not be null")
+	if err := tx.Validate(); err != nil {
+		return err
 	}
 	if b, ok := budgets[tx.Category]; ok {
 		var spent float64

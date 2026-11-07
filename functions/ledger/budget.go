@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -14,11 +15,25 @@ type Budget struct {
 
 var budgets map[string]Budget
 
-func SetBudget(b Budget) {
+func (b Budget) Validate() error {
+	if b.Limit <= 0 {
+		return errors.New("budget limit must be positive")
+	}
+	if b.Category == "" {
+		return errors.New("budget category must not be empty")
+	}
+	return nil
+}
+
+func SetBudget(b Budget) error {
+	if err := b.Validate(); err != nil {
+		return err
+	}
 	if budgets == nil {
 		budgets = make(map[string]Budget)
 	}
 	budgets[b.Category] = b
+	return nil
 }
 
 func LoadBudgets(r io.Reader) error {
@@ -33,12 +48,14 @@ func LoadBudgets(r io.Reader) error {
 	}
 
 	for i, b := range items {
-		if b.Category == "" {
-			return fmt.Errorf("budget %d: empty category", i+1)
+		if err := b.Validate(); err != nil {
+			return fmt.Errorf("budget %d: %w", i+1, err)
 		}
 	}
 	for _, b := range items {
-		SetBudget(b)
+		if err := SetBudget(b); err != nil {
+			return err
+		}
 	}
 	return nil
 }
