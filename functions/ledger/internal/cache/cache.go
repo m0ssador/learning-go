@@ -12,7 +12,7 @@ import (
 
 var client *redis.Client
 
-func Connect() error {
+func Connect(ctx context.Context) error {
 	addr := envOr("REDIS_ADDR", "localhost:6379")
 	db, err := redisDB()
 	if err != nil {
@@ -25,9 +25,9 @@ func Connect() error {
 		DB:       db,
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	if err := client.Ping(ctx).Err(); err != nil {
+	if err := client.Ping(pingCtx).Err(); err != nil {
 		_ = client.Close()
 		client = nil
 		return err
@@ -63,6 +63,15 @@ func Del(ctx context.Context, keys ...string) error {
 		return nil
 	}
 	return client.Del(ctx, keys...).Err()
+}
+
+func Close() error {
+	if client == nil {
+		return nil
+	}
+	err := client.Close()
+	client = nil
+	return err
 }
 
 func DelByPrefix(ctx context.Context, prefix string) error {

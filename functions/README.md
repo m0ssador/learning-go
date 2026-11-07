@@ -128,3 +128,25 @@ Ledger пишет бюджеты и расходы в PostgreSQL.
 Gateway перезапущен. Ключ `budgets:all` перед чтением удалён из Redis, в журнале `cache miss`:
 
 ![alt text](../docs/functions/image-13.png)
+
+# Домашнее задание 8
+
+Ledger разложен по слоям. `internal/domain` описывает сущности и интерфейсы хранилища. `internal/repository/pg` содержит SQL. `service` выполняет `Validate` и правило бюджета и ходит в базу только через эти интерфейсы. `app.New(ctx)` открывает PostgreSQL, собирает репозитории и возвращает сервис вместе с `closeFn`. Gateway вызывает фабрику, передаёт сервис в `api.New` и закрывает ресурсы через `defer closeFn()`. Пакеты `service` и `app` стоят вне `internal`, потому что Gateway — отдельный модуль.
+
+`go test ./... -count=1 -v` при `DATABASE_URL` и `REDIS_ADDR`. Табличные проверки `Validate` идут с `t.Parallel()`. Сумма сверх лимита не попадает в список. HTTP-сценарии `ok`, `exceeded`, `bad_json` и `bad_limit` сохраняют прежние коды.
+
+Ledger:
+
+![alt text](../docs/functions/image-14.png)
+
+Gateway:
+
+![alt text](../docs/functions/image-15.png)
+
+Пустые списки, бюджет «еда» 5000, нулевой лимит и неверный JSON:
+
+![alt text](../docs/functions/image-16.png)
+
+Расход 450, отказ `409` на сумму сверх лимита:
+
+![alt text](../docs/functions/image-17.png)

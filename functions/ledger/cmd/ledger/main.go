@@ -2,35 +2,41 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 
-	"github.com/m0ssador/learning-go/functions/ledger"
+	"github.com/m0ssador/learning-go/functions/ledger/app"
+	"github.com/m0ssador/learning-go/functions/ledger/internal/domain"
+	"github.com/m0ssador/learning-go/functions/ledger/service"
 )
 
 func main() {
-	if err := ledger.Connect(); err != nil {
+	ctx := context.Background()
+	svc, closeFn, err := app.New(ctx)
+	if err != nil {
 		fmt.Printf("не удалось подключиться к базе: %v\n", err)
 		os.Exit(1)
 	}
+	defer closeFn()
 	fmt.Println("Ledger service started")
 
 	checks := []struct {
 		name string
-		v    ledger.Validatable
+		v    domain.Validatable
 	}{
-		{"Transaction", ledger.Transaction{Amount: 100, Category: "еда", Date: "2026-10-01"}},
-		{"Transaction", ledger.Transaction{Amount: 0, Category: "еда", Date: "2026-10-01"}},
-		{"Transaction", ledger.Transaction{Amount: -5, Category: "еда", Date: "2026-10-01"}},
-		{"Transaction", ledger.Transaction{Amount: 10, Category: "", Date: "2026-10-01"}},
-		{"Budget", ledger.Budget{Category: "еда", Limit: 5000, Period: "month"}},
-		{"Budget", ledger.Budget{Category: "", Limit: 5000}},
-		{"Budget", ledger.Budget{Category: "еда", Limit: 0}},
-		{"Budget", ledger.Budget{Category: "еда", Limit: -100}},
+		{"Transaction", domain.Transaction{Amount: 100, Category: "еда", Date: "2026-10-01"}},
+		{"Transaction", domain.Transaction{Amount: 0, Category: "еда", Date: "2026-10-01"}},
+		{"Transaction", domain.Transaction{Amount: -5, Category: "еда", Date: "2026-10-01"}},
+		{"Transaction", domain.Transaction{Amount: 10, Category: "", Date: "2026-10-01"}},
+		{"Budget", domain.Budget{Category: "еда", Limit: 5000, Period: "month"}},
+		{"Budget", domain.Budget{Category: "", Limit: 5000}},
+		{"Budget", domain.Budget{Category: "еда", Limit: 0}},
+		{"Budget", domain.Budget{Category: "еда", Limit: -100}},
 	}
 	fmt.Println("CheckValid:")
 	for _, check := range checks {
-		if err := ledger.CheckValid(check.v); err != nil {
+		if err := domain.CheckValid(check.v); err != nil {
 			fmt.Printf("отказ: %s: %v\n", check.name, err)
 			continue
 		}
@@ -42,12 +48,12 @@ func main() {
 		fmt.Printf("не удалось открыть budgets.json: %v\n", err)
 	} else {
 		defer f.Close()
-		if err := ledger.LoadBudgets(bufio.NewReader(f)); err != nil {
+		if err := service.LoadBudgets(ctx, svc, bufio.NewReader(f)); err != nil {
 			fmt.Printf("не удалось загрузить бюджеты: %v\n", err)
 		}
 	}
 
-	if err := ledger.SetBudget(ledger.Budget{
+	if err := svc.SetBudget(ctx, domain.Budget{
 		Category: "жильё",
 		Limit:    10000,
 		Period:   "month",
@@ -55,20 +61,20 @@ func main() {
 		fmt.Printf("отказ: бюджет не установлен: %v\n", err)
 	}
 
-	invalidBudgets := []ledger.Budget{
+	invalidBudgets := []domain.Budget{
 		{Category: "", Limit: 1000},
 		{Category: "еда", Limit: 0},
 		{Category: "еда", Limit: -1},
 	}
 	for _, b := range invalidBudgets {
-		if err := ledger.SetBudget(b); err != nil {
+		if err := svc.SetBudget(ctx, b); err != nil {
 			fmt.Printf("отказ: бюджет не установлен (категория %q, лимит %.2f): %v\n",
 				b.Category, b.Limit, err)
 		}
 	}
 
 	fmt.Println("Budgets:")
-	budgets, err := ledger.ListBudgets()
+	budgets, err := svc.ListBudgets(ctx)
 	if err != nil {
 		fmt.Printf("не удалось прочитать бюджеты: %v\n", err)
 	}
@@ -76,7 +82,7 @@ func main() {
 		fmt.Printf("Category=%s Limit=%.2f Period=%s\n", b.Category, b.Limit, b.Period)
 	}
 
-	samples := []ledger.Transaction{
+	samples := []domain.Transaction{
 		{
 			Amount:      1500.50,
 			Category:    "еда",
@@ -140,7 +146,7 @@ func main() {
 	}
 
 	for _, tx := range samples {
-		if _, err := ledger.AddTransaction(tx); err != nil {
+		if _, err := svc.AddTransaction(ctx, tx); err != nil {
 			fmt.Printf("отказ: транзакция не добавлена (категория %s, сумма %.2f): %v\n",
 				tx.Category, tx.Amount, err)
 			continue
@@ -150,7 +156,7 @@ func main() {
 	}
 
 	fmt.Println("Transactions:")
-	transactions, err := ledger.ListTransactions()
+	transactions, err := svc.ListTransactions(ctx)
 	if err != nil {
 		fmt.Printf("не удалось прочитать транзакции: %v\n", err)
 	}

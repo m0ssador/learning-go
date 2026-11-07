@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -9,28 +10,38 @@ import (
 	"os"
 	"testing"
 
-	"github.com/m0ssador/learning-go/functions/ledger"
+	"github.com/m0ssador/learning-go/functions/ledger/app"
+	"github.com/m0ssador/learning-go/functions/ledger/service"
 )
 
+var svc service.Service
+
 func TestMain(m *testing.M) {
+	var closeFn func() error
 	if os.Getenv("DATABASE_URL") != "" {
-		if err := ledger.Connect(); err != nil {
+		var err error
+		svc, closeFn, err = app.New(context.Background())
+		if err != nil {
 			os.Stderr.WriteString(err.Error() + "\n")
 			os.Exit(1)
 		}
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	if closeFn != nil {
+		_ = closeFn()
+	}
+	os.Exit(code)
 }
 
 func TestBudgetsAPI(t *testing.T) {
-	if !ledger.Connected() {
+	if svc == nil {
 		t.Skip("DATABASE_URL is not set")
 	}
 	srv := newAPIServer(t)
 
 	t.Run("ok", func(t *testing.T) {
-		ledger.Reset()
-		t.Cleanup(ledger.Reset)
+		app.Reset(context.Background())
+		t.Cleanup(func() { app.Reset(context.Background()) })
 
 		resp := postJSON(t, srv.URL+"/api/budgets", CreateBudgetRequest{
 			Category: "еда",
@@ -55,8 +66,8 @@ func TestBudgetsAPI(t *testing.T) {
 	})
 
 	t.Run("bad_json", func(t *testing.T) {
-		ledger.Reset()
-		t.Cleanup(ledger.Reset)
+		app.Reset(context.Background())
+		t.Cleanup(func() { app.Reset(context.Background()) })
 
 		resp := postRaw(t, srv.URL+"/api/budgets", []byte("{"))
 		assertStatus(t, resp, http.StatusBadRequest)
@@ -67,8 +78,8 @@ func TestBudgetsAPI(t *testing.T) {
 	})
 
 	t.Run("bad_limit", func(t *testing.T) {
-		ledger.Reset()
-		t.Cleanup(ledger.Reset)
+		app.Reset(context.Background())
+		t.Cleanup(func() { app.Reset(context.Background()) })
 
 		resp := postJSON(t, srv.URL+"/api/budgets", CreateBudgetRequest{
 			Category: "еда",
@@ -83,14 +94,14 @@ func TestBudgetsAPI(t *testing.T) {
 }
 
 func TestTransactionsAPI(t *testing.T) {
-	if !ledger.Connected() {
+	if svc == nil {
 		t.Skip("DATABASE_URL is not set")
 	}
 	srv := newAPIServer(t)
 
 	t.Run("ok", func(t *testing.T) {
-		ledger.Reset()
-		t.Cleanup(ledger.Reset)
+		app.Reset(context.Background())
+		t.Cleanup(func() { app.Reset(context.Background()) })
 
 		resp := postJSON(t, srv.URL+"/api/budgets", CreateBudgetRequest{
 			Category: "еда",
@@ -124,8 +135,8 @@ func TestTransactionsAPI(t *testing.T) {
 	})
 
 	t.Run("exceeded", func(t *testing.T) {
-		ledger.Reset()
-		t.Cleanup(ledger.Reset)
+		app.Reset(context.Background())
+		t.Cleanup(func() { app.Reset(context.Background()) })
 
 		resp := postJSON(t, srv.URL+"/api/budgets", CreateBudgetRequest{
 			Category: "еда",
@@ -165,8 +176,8 @@ func TestTransactionsAPI(t *testing.T) {
 	})
 
 	t.Run("bad_json", func(t *testing.T) {
-		ledger.Reset()
-		t.Cleanup(ledger.Reset)
+		app.Reset(context.Background())
+		t.Cleanup(func() { app.Reset(context.Background()) })
 
 		resp := postRaw(t, srv.URL+"/api/transactions", []byte("{"))
 		assertStatus(t, resp, http.StatusBadRequest)
@@ -179,9 +190,10 @@ func TestTransactionsAPI(t *testing.T) {
 
 func newAPIServer(t *testing.T) *httptest.Server {
 	t.Helper()
+	h := New(svc)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/transactions", Transactions)
-	mux.HandleFunc("/api/budgets", Budgets)
+	mux.HandleFunc("/api/transactions", h.Transactions)
+	mux.HandleFunc("/api/budgets", h.Budgets)
 	srv := httptest.NewServer(LogRequests(mux))
 	t.Cleanup(srv.Close)
 	return srv

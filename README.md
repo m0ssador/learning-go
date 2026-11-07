@@ -2,6 +2,22 @@
 
 Gateway отдаёт HTTP API поверх Ledger. Бюджеты и расходы лежат в PostgreSQL. Сводка отчёта и список бюджетов кэшируются в Redis на 30 секунд.
 
+## Слои
+
+Зависимости направлены к домену.
+
+`functions/ledger/internal/domain` хранит `Budget`, `Transaction` и их `Validate`. Там же интерфейсы репозиториев: бюджет сохраняется, читается по категории и списком; расход добавляется, читается списком, суммируется по категории и собирается в сводку за период. Этот пакет не импортирует SQL и HTTP.
+
+`functions/ledger/internal/repository/pg` выполняет эти операции в PostgreSQL. `internal/repository/cached` кэширует список бюджетов и сводку в Redis на 30 секунд и удаляет ключ `budgets:all` после сохранения бюджета.
+
+`functions/ledger/service` проверяет сущность и правило бюджета. Если для категории есть лимит и текущая сумма вместе с новой транзакцией больше лимита, `AddTransaction` возвращает `budget exceeded` и запись не создаётся. К базе сервис обращается только через интерфейсы домена.
+
+`app.New(ctx)` в `functions/ledger/app` читает `DATABASE_URL` или `DB_*`, открывает PostgreSQL, вызывает `PingContext`, подключает Redis, собирает репозитории и возвращает сервис, `closeFn` и ошибку. Миграции фабрика не запускает.
+
+Пакеты `service` и `app` лежат вне `internal`: Gateway — отдельный модуль, а Go не даёт импортировать чужой `internal`.
+
+Gateway в `main` вызывает `app.New`. При ошибке подключения пишет её в лог и завершается. После успеха стоит `defer closeFn()`. `api.New` получает сервис, обработчики вызывают его методы. DTO, пути и коды ответов прежние. Исходники Gateway импортируют `ledger/app` и `ledger/service` и не импортируют `database/sql`, `pgx` и `repository`.
+
 ## База и Redis
 
 База по умолчанию — `cashapp`. Строка подключения берётся из `DATABASE_URL`. Если её нет, Ledger собирает её из `DB_HOST` (`localhost`), `DB_PORT` (`5432`), `DB_USER` (`postgres`), `DB_PASS` (`postgres`) и `DB_NAME` (`cashapp`), с `sslmode=disable`.

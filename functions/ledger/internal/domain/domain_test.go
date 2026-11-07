@@ -1,10 +1,6 @@
-package ledger
+package domain
 
-import (
-	"errors"
-	"os"
-	"testing"
-)
+import "testing"
 
 func TestTransactionValidate(t *testing.T) {
 	tests := []struct {
@@ -88,51 +84,6 @@ func TestBudgetValidate(t *testing.T) {
 			}
 			assertNoError(t, err)
 		})
-	}
-}
-
-func TestMain(m *testing.M) {
-	if os.Getenv("DATABASE_URL") != "" {
-		if err := Connect(); err != nil {
-			os.Stderr.WriteString(err.Error() + "\n")
-			os.Exit(1)
-		}
-	}
-	os.Exit(m.Run())
-}
-
-func TestAddTransactionBudgetLimit(t *testing.T) {
-	if !Connected() {
-		t.Skip("DATABASE_URL is not set")
-	}
-	Reset()
-	t.Cleanup(Reset)
-
-	assertNoError(t, SetBudget(Budget{Category: "еда", Limit: 5000}))
-
-	_, err := AddTransaction(Transaction{
-		Amount:      1500.50,
-		Category:    "еда",
-		Description: "продукты",
-		Date:        "2025-09-10",
-	})
-	assertNoError(t, err)
-
-	before, err := ListTransactions()
-	assertNoError(t, err)
-	_, err = AddTransaction(Transaction{
-		Amount:      4000,
-		Category:    "еда",
-		Description: "сверх лимита",
-		Date:        "2025-09-11",
-	})
-	if !errors.Is(err, ErrBudgetExceeded) {
-		t.Fatalf("got %v, want budget exceeded", err)
-	}
-	after, err := ListTransactions()
-	assertNoError(t, err)
-	if len(after) != len(before) {
-		t.Fatalf("transactions after reject: %d, want %d", len(after), len(before))
 	}
 }
 

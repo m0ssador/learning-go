@@ -1,8 +1,8 @@
 package db
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -11,32 +11,24 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-var handle *sql.DB
-
-func Open() error {
+func Open(ctx context.Context) (*sql.DB, error) {
 	dsn, err := dsnFromEnv()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	opened, err := sql.Open("pgx", dsn)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	opened.SetMaxOpenConns(10)
 	opened.SetMaxIdleConns(5)
 	opened.SetConnMaxLifetime(30 * time.Minute)
-	if err := opened.Ping(); err != nil {
+	if err := opened.PingContext(ctx); err != nil {
 		_ = opened.Close()
-		return err
+		return nil, err
 	}
-
-	handle = opened
-	return nil
-}
-
-func SQL() *sql.DB {
-	return handle
+	return opened, nil
 }
 
 func dsnFromEnv() (string, error) {
@@ -64,16 +56,4 @@ func envOr(key, fallback string) string {
 		return value
 	}
 	return fallback
-}
-
-func Close() error {
-	if handle == nil {
-		return nil
-	}
-	err := handle.Close()
-	handle = nil
-	if err != nil {
-		return fmt.Errorf("close postgres: %w", err)
-	}
-	return nil
 }

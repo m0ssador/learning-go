@@ -1,6 +1,6 @@
 package api
 
-import "github.com/m0ssador/learning-go/functions/ledger"
+import "github.com/m0ssador/learning-go/functions/ledger/service"
 
 type CreateTransactionRequest struct {
 	Amount      float64 `json:"amount"`
@@ -28,8 +28,8 @@ type BudgetResponse struct {
 	Period   string  `json:"period"`
 }
 
-func (r CreateTransactionRequest) ToTransaction() ledger.Transaction {
-	return ledger.Transaction{
+func (r CreateTransactionRequest) ToTransaction() service.Transaction {
+	return service.Transaction{
 		Amount:      r.Amount,
 		Category:    r.Category,
 		Description: r.Description,
@@ -37,7 +37,7 @@ func (r CreateTransactionRequest) ToTransaction() ledger.Transaction {
 	}
 }
 
-func TransactionResponseFrom(tx ledger.Transaction) TransactionResponse {
+func TransactionResponseFrom(tx service.Transaction) TransactionResponse {
 	return TransactionResponse{
 		ID:          tx.ID,
 		Amount:      tx.Amount,
@@ -47,14 +47,14 @@ func TransactionResponseFrom(tx ledger.Transaction) TransactionResponse {
 	}
 }
 
-func (r CreateBudgetRequest) ToBudget() ledger.Budget {
-	return ledger.Budget{
+func (r CreateBudgetRequest) ToBudget() service.Budget {
+	return service.Budget{
 		Category: r.Category,
 		Limit:    r.Limit,
 	}
 }
 
-func BudgetResponseFrom(b ledger.Budget) BudgetResponse {
+func BudgetResponseFrom(b service.Budget) BudgetResponse {
 	return BudgetResponse{
 		Category: b.Category,
 		Limit:    b.Limit,

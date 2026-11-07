@@ -7,47 +7,54 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/m0ssador/learning-go/functions/ledger"
+	"github.com/m0ssador/learning-go/functions/ledger/service"
 )
 
-func Transactions(w http.ResponseWriter, r *http.Request) {
+type Handler struct {
+	svc service.Service
+}
+
+func New(svc service.Service) *Handler {
+	return &Handler{svc: svc}
+}
+
+func (h *Handler) Transactions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		createTransaction(w, r)
+		h.createTransaction(w, r)
 	case http.MethodGet:
-		listTransactions(w, r)
+		h.listTransactions(w, r)
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
-func Budgets(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Budgets(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		createBudget(w, r)
+		h.createBudget(w, r)
 	case http.MethodGet:
-		listBudgets(w, r)
+		h.listBudgets(w, r)
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
-func createTransaction(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 	var req CreateTransactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
 
-	tx := req.ToTransaction()
-	if err := tx.Validate(); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+	created, err := h.svc.AddTransaction(r.Context(), req.ToTransaction())
+	if errors.Is(err, service.ErrBudgetExceeded) {
+		writeError(w, http.StatusConflict, "budget exceeded")
 		return
 	}
-
-	created, err := ledger.AddTransaction(tx)
-	if errors.Is(err, ledger.ErrBudgetExceeded) {
-		writeError(w, http.StatusConflict, "budget exceeded")
+	var invalid *service.ValidationError
+	if errors.As(err, &invalid) {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err != nil {
@@ -59,8 +66,8 @@ func createTransaction(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, TransactionResponseFrom(created))
 }
 
-func listTransactions(w http.ResponseWriter, _ *http.Request) {
-	items, err := ledger.ListTransactions()
+func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
+	items, err := h.svc.ListTransactions(r.Context())
 	if err != nil {
 		log.Printf("list transactions: %v", err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
@@ -73,7 +80,7 @@ func listTransactions(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-func createBudget(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) createBudget(w http.ResponseWriter, r *http.Request) {
 	var req CreateBudgetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
@@ -81,11 +88,12 @@ func createBudget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	budget := req.ToBudget()
-	if err := budget.Validate(); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := ledger.SetBudget(budget); err != nil {
+	if err := h.svc.SetBudget(r.Context(), budget); err != nil {
+		var invalid *service.ValidationError
+		if errors.As(err, &invalid) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		log.Printf("set budget: %v", err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
 		return
@@ -94,8 +102,8 @@ func createBudget(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, BudgetResponseFrom(budget))
 }
 
-func listBudgets(w http.ResponseWriter, _ *http.Request) {
-	items, err := ledger.ListBudgets()
+func (h *Handler) listBudgets(w http.ResponseWriter, r *http.Request) {
+	items, err := h.svc.ListBudgets(r.Context())
 	if err != nil {
 		log.Printf("list budgets: %v", err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
@@ -108,7 +116,7 @@ func listBudgets(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-func Summary(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
@@ -129,7 +137,7 @@ func Summary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := ledger.GetReportSummary(r.Context(), from, to)
+	items, err := h.svc.ReportSummary(r.Context(), from, to)
 	if err != nil {
 		log.Printf("report summary: %v", err)
 		writeError(w, http.StatusInternalServerError, "internal server error")
