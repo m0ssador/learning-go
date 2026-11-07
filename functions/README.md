@@ -31,7 +31,7 @@ curl.exe http://localhost:8080/ping
 
 ```powershell
 cd functions/ledger
-go run .
+go run ./cmd/ledger
 ```
 
 ![alt text](../docs/functions/image-2.png)

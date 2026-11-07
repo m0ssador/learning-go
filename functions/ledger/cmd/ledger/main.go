@@ -4,30 +4,29 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"sort"
+
+	"github.com/m0ssador/learning-go/functions/ledger"
 )
 
 func main() {
-	transactions = make([]Transaction, 0)
-	budgets = make(map[string]Budget)
 	fmt.Println("Ledger service started")
 
 	checks := []struct {
 		name string
-		v    Validatable
+		v    ledger.Validatable
 	}{
-		{"Transaction", Transaction{Amount: 100, Category: "еда", Date: "2026-10-01"}},
-		{"Transaction", Transaction{Amount: 0, Category: "еда", Date: "2026-10-01"}},
-		{"Transaction", Transaction{Amount: -5, Category: "еда", Date: "2026-10-01"}},
-		{"Transaction", Transaction{Amount: 10, Category: "", Date: "2026-10-01"}},
-		{"Budget", Budget{Category: "еда", Limit: 5000, Period: "month"}},
-		{"Budget", Budget{Category: "", Limit: 5000}},
-		{"Budget", Budget{Category: "еда", Limit: 0}},
-		{"Budget", Budget{Category: "еда", Limit: -100}},
+		{"Transaction", ledger.Transaction{Amount: 100, Category: "еда", Date: "2026-10-01"}},
+		{"Transaction", ledger.Transaction{Amount: 0, Category: "еда", Date: "2026-10-01"}},
+		{"Transaction", ledger.Transaction{Amount: -5, Category: "еда", Date: "2026-10-01"}},
+		{"Transaction", ledger.Transaction{Amount: 10, Category: "", Date: "2026-10-01"}},
+		{"Budget", ledger.Budget{Category: "еда", Limit: 5000, Period: "month"}},
+		{"Budget", ledger.Budget{Category: "", Limit: 5000}},
+		{"Budget", ledger.Budget{Category: "еда", Limit: 0}},
+		{"Budget", ledger.Budget{Category: "еда", Limit: -100}},
 	}
 	fmt.Println("CheckValid:")
 	for _, check := range checks {
-		if err := CheckValid(check.v); err != nil {
+		if err := ledger.CheckValid(check.v); err != nil {
 			fmt.Printf("отказ: %s: %v\n", check.name, err)
 			continue
 		}
@@ -39,12 +38,12 @@ func main() {
 		fmt.Printf("не удалось открыть budgets.json: %v\n", err)
 	} else {
 		defer f.Close()
-		if err := LoadBudgets(bufio.NewReader(f)); err != nil {
+		if err := ledger.LoadBudgets(bufio.NewReader(f)); err != nil {
 			fmt.Printf("не удалось загрузить бюджеты: %v\n", err)
 		}
 	}
 
-	if err := SetBudget(Budget{
+	if err := ledger.SetBudget(ledger.Budget{
 		Category: "жильё",
 		Limit:    10000,
 		Period:   "month",
@@ -52,22 +51,24 @@ func main() {
 		fmt.Printf("отказ: бюджет не установлен: %v\n", err)
 	}
 
-	invalidBudgets := []Budget{
+	invalidBudgets := []ledger.Budget{
 		{Category: "", Limit: 1000},
 		{Category: "еда", Limit: 0},
 		{Category: "еда", Limit: -1},
 	}
 	for _, b := range invalidBudgets {
-		if err := SetBudget(b); err != nil {
+		if err := ledger.SetBudget(b); err != nil {
 			fmt.Printf("отказ: бюджет не установлен (категория %q, лимит %.2f): %v\n",
 				b.Category, b.Limit, err)
 		}
 	}
 
 	fmt.Println("Budgets:")
-	printBudgets()
+	for _, b := range ledger.ListBudgets() {
+		fmt.Printf("Category=%s Limit=%.2f Period=%s\n", b.Category, b.Limit, b.Period)
+	}
 
-	samples := []Transaction{
+	samples := []ledger.Transaction{
 		{
 			Amount:      1500.50,
 			Category:    "еда",
@@ -131,7 +132,7 @@ func main() {
 	}
 
 	for _, tx := range samples {
-		if err := AddTransaction(tx); err != nil {
+		if _, err := ledger.AddTransaction(tx); err != nil {
 			fmt.Printf("отказ: транзакция не добавлена (категория %s, сумма %.2f): %v\n",
 				tx.Category, tx.Amount, err)
 			continue
@@ -141,20 +142,8 @@ func main() {
 	}
 
 	fmt.Println("Transactions:")
-	for _, tx := range ListTransactions() {
+	for _, tx := range ledger.ListTransactions() {
 		fmt.Printf("ID=%d Amount=%.2f Category=%s Description=%s Date=%s\n",
 			tx.ID, tx.Amount, tx.Category, tx.Description, tx.Date)
-	}
-}
-
-func printBudgets() {
-	categories := make([]string, 0, len(budgets))
-	for category := range budgets {
-		categories = append(categories, category)
-	}
-	sort.Strings(categories)
-	for _, category := range categories {
-		b := budgets[category]
-		fmt.Printf("Category=%s Limit=%.2f Period=%s\n", b.Category, b.Limit, b.Period)
 	}
 }

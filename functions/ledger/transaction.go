@@ -1,6 +1,8 @@
-package main
+package ledger
 
 import "errors"
+
+var ErrBudgetExceeded = errors.New("budget exceeded")
 
 type Transaction struct {
 	ID          int
@@ -9,8 +11,6 @@ type Transaction struct {
 	Description string
 	Date        string
 }
-
-var transactions []Transaction
 
 func (t Transaction) Validate() error {
 	if t.Amount == 0 {
@@ -25,10 +25,14 @@ func (t Transaction) Validate() error {
 	return nil
 }
 
-func AddTransaction(tx Transaction) error {
+func AddTransaction(tx Transaction) (Transaction, error) {
 	if err := tx.Validate(); err != nil {
-		return err
+		return Transaction{}, err
 	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
 	if b, ok := budgets[tx.Category]; ok {
 		var spent float64
 		for _, existing := range transactions {
@@ -37,15 +41,19 @@ func AddTransaction(tx Transaction) error {
 			}
 		}
 		if spent+tx.Amount > b.Limit {
-			return errors.New("budget exceeded")
+			return Transaction{}, ErrBudgetExceeded
 		}
 	}
+
 	tx.ID = len(transactions) + 1
 	transactions = append(transactions, tx)
-	return nil
+	return tx, nil
 }
 
 func ListTransactions() []Transaction {
+	mu.Lock()
+	defer mu.Unlock()
+
 	result := make([]Transaction, len(transactions))
 	copy(result, transactions)
 	return result

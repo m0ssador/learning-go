@@ -1,10 +1,11 @@
-package main
+package ledger
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 )
 
 type Budget struct {
@@ -12,8 +13,6 @@ type Budget struct {
 	Limit    float64
 	Period   string
 }
-
-var budgets map[string]Budget
 
 func (b Budget) Validate() error {
 	if b.Limit <= 0 {
@@ -29,11 +28,29 @@ func SetBudget(b Budget) error {
 	if err := b.Validate(); err != nil {
 		return err
 	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
 	if budgets == nil {
 		budgets = make(map[string]Budget)
 	}
 	budgets[b.Category] = b
 	return nil
+}
+
+func ListBudgets() []Budget {
+	mu.Lock()
+	defer mu.Unlock()
+
+	result := make([]Budget, 0, len(budgets))
+	for _, b := range budgets {
+		result = append(result, b)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Category < result[j].Category
+	})
+	return result
 }
 
 func LoadBudgets(r io.Reader) error {
