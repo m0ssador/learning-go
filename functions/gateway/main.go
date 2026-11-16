@@ -28,9 +28,13 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "pong")
 	})
-	mux.HandleFunc("/api/transactions", h.Transactions)
-	mux.HandleFunc("/api/budgets", h.Budgets)
-	mux.HandleFunc("/api/reports/summary", h.Summary)
+	timeout := api.TimeoutFromEnv()
+	log.Printf("таймаут запроса %s", timeout)
+	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("/api/transactions", h.Transactions)
+	apiMux.HandleFunc("/api/budgets", h.Budgets)
+	apiMux.HandleFunc("/api/reports/summary", h.Summary)
+	mux.Handle("/api/", api.RequestTimeout(timeout)(apiMux))
 
 	addr := ":8080"
 	log.Printf("Gateway listening on %s", addr)

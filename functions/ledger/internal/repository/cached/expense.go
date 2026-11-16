@@ -33,6 +33,14 @@ func (r *Expenses) SumByCategory(ctx context.Context, category string) (float64,
 	return r.next.SumByCategory(ctx, category)
 }
 
+func (r *Expenses) Categories(ctx context.Context, from, to time.Time) ([]string, error) {
+	return r.next.Categories(ctx, from, to)
+}
+
+func (r *Expenses) SumBetween(ctx context.Context, category string, from, to time.Time) (float64, error) {
+	return r.next.SumBetween(ctx, category, from, to)
+}
+
 func (r *Expenses) Summary(ctx context.Context, from, to time.Time) ([]domain.SummaryItem, error) {
 	key := fmt.Sprintf("report:summary:%s:%s", from.Format(time.DateOnly), to.Format(time.DateOnly))
 	if raw, ok, err := cache.Get(ctx, key); err != nil {

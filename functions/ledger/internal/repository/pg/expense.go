@@ -72,6 +72,45 @@ func (r *ExpenseRepository) SumByCategory(ctx context.Context, category string) 
 	return spent, nil
 }
 
+func (r *ExpenseRepository) Categories(ctx context.Context, from, to time.Time) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT category
+		FROM expenses
+		WHERE date >= $1 AND date <= $2
+		ORDER BY category
+	`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	categories := make([]string, 0)
+	for rows.Next() {
+		var category string
+		if err := rows.Scan(&category); err != nil {
+			return nil, err
+		}
+		categories = append(categories, category)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return categories, nil
+}
+
+func (r *ExpenseRepository) SumBetween(ctx context.Context, category string, from, to time.Time) (float64, error) {
+	var total float64
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(amount), 0)
+		FROM expenses
+		WHERE category = $1 AND date >= $2 AND date <= $3
+	`, category, from, to).Scan(&total)
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
 func (r *ExpenseRepository) Summary(ctx context.Context, from, to time.Time) ([]domain.SummaryItem, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT category, COALESCE(SUM(amount), 0)

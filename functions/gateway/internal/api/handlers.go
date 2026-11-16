@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -58,8 +59,7 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		log.Printf("add transaction: %v", err)
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		writeFailure(w, err, "add transaction")
 		return
 	}
 
@@ -69,8 +69,7 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 	items, err := h.svc.ListTransactions(r.Context())
 	if err != nil {
-		log.Printf("list transactions: %v", err)
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		writeFailure(w, err, "list transactions")
 		return
 	}
 	out := make([]TransactionResponse, 0, len(items))
@@ -94,8 +93,7 @@ func (h *Handler) createBudget(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		log.Printf("set budget: %v", err)
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		writeFailure(w, err, "set budget")
 		return
 	}
 
@@ -105,8 +103,7 @@ func (h *Handler) createBudget(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) listBudgets(w http.ResponseWriter, r *http.Request) {
 	items, err := h.svc.ListBudgets(r.Context())
 	if err != nil {
-		log.Printf("list budgets: %v", err)
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		writeFailure(w, err, "list budgets")
 		return
 	}
 	out := make([]BudgetResponse, 0, len(items))
@@ -137,11 +134,19 @@ func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items, err := h.svc.ReportSummary(r.Context(), from, to)
+	totals, err := h.svc.ReportSummary(r.Context(), from, to)
 	if err != nil {
-		log.Printf("report summary: %v", err)
-		writeError(w, http.StatusInternalServerError, "internal server error")
+		writeFailure(w, err, "report summary")
 		return
 	}
-	writeJSON(w, http.StatusOK, items)
+	writeJSON(w, http.StatusOK, totals)
+}
+
+func writeFailure(w http.ResponseWriter, err error, what string) {
+	log.Printf("%s: %v", what, err)
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		writeError(w, http.StatusGatewayTimeout, "request timeout")
+		return
+	}
+	writeError(w, http.StatusInternalServerError, "internal server error")
 }

@@ -20,5 +20,7 @@ type ExpenseRepository interface {
 	Add(ctx context.Context, tx Transaction) (Transaction, error)
 	List(ctx context.Context) ([]Transaction, error)
 	SumByCategory(ctx context.Context, category string) (float64, error)
+	Categories(ctx context.Context, from, to time.Time) ([]string, error)
+	SumBetween(ctx context.Context, category string, from, to time.Time) (float64, error)
 	Summary(ctx context.Context, from, to time.Time) ([]SummaryItem, error)
 }

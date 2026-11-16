@@ -13,7 +13,7 @@ type Service interface {
 	ListBudgets(ctx context.Context) ([]domain.Budget, error)
 	AddTransaction(ctx context.Context, tx domain.Transaction) (domain.Transaction, error)
 	ListTransactions(ctx context.Context) ([]domain.Transaction, error)
-	ReportSummary(ctx context.Context, from, to time.Time) ([]domain.SummaryItem, error)
+	ReportSummary(ctx context.Context, from, to time.Time) (map[string]float64, error)
 }
 
 type ledger struct {
@@ -63,8 +63,4 @@ func (s *ledger) AddTransaction(ctx context.Context, tx domain.Transaction) (dom
 
 func (s *ledger) ListTransactions(ctx context.Context) ([]domain.Transaction, error) {
 	return s.expenses.List(ctx)
-}
-
-func (s *ledger) ReportSummary(ctx context.Context, from, to time.Time) ([]domain.SummaryItem, error) {
-	return s.expenses.Summary(ctx, from, to)
 }
