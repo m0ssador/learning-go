@@ -14,6 +14,7 @@ type Service interface {
 	AddTransaction(ctx context.Context, tx domain.Transaction) (domain.Transaction, error)
 	ListTransactions(ctx context.Context) ([]domain.Transaction, error)
 	ReportSummary(ctx context.Context, from, to time.Time) (map[string]float64, error)
+	ImportTransactions(ctx context.Context, txs []domain.Transaction, workers int) (ImportSummary, error)
 }
 
 type ledger struct {

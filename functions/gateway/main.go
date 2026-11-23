@@ -32,6 +32,7 @@ func main() {
 	log.Printf("таймаут запроса %s", timeout)
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("/api/transactions", h.Transactions)
+	apiMux.HandleFunc("/api/transactions/bulk", h.BulkTransactions)
 	apiMux.HandleFunc("/api/budgets", h.Budgets)
 	apiMux.HandleFunc("/api/reports/summary", h.Summary)
 	mux.Handle("/api/", api.RequestTimeout(timeout)(apiMux))

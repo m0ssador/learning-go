@@ -54,6 +54,29 @@ func (r CreateBudgetRequest) ToBudget() service.Budget {
 	}
 }
 
+type BulkImportError struct {
+	Index int    `json:"index"`
+	Error string `json:"error"`
+}
+
+type BulkImportResponse struct {
+	Accepted int               `json:"accepted"`
+	Rejected int               `json:"rejected"`
+	Errors   []BulkImportError `json:"errors"`
+}
+
+func bulkResponseFrom(summary service.ImportSummary) BulkImportResponse {
+	errs := make([]BulkImportError, 0, len(summary.Errors))
+	for _, item := range summary.Errors {
+		errs = append(errs, BulkImportError{Index: item.Index, Error: item.Message})
+	}
+	return BulkImportResponse{
+		Accepted: summary.Accepted,
+		Rejected: summary.Rejected,
+		Errors:   errs,
+	}
+}
+
 func BudgetResponseFrom(b service.Budget) BudgetResponse {
 	return BudgetResponse{
 		Category: b.Category,

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/m0ssador/learning-go/functions/ledger/service"
@@ -64,6 +65,41 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, TransactionResponseFrom(created))
+}
+
+func (h *Handler) BulkTransactions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var reqs []CreateTransactionRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqs); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	workers := service.DefaultImportWorkers
+	if raw := r.URL.Query().Get("workers"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 {
+			writeError(w, http.StatusBadRequest, "invalid workers")
+			return
+		}
+		workers = n
+	}
+
+	txs := make([]service.Transaction, len(reqs))
+	for i, req := range reqs {
+		txs[i] = req.ToTransaction()
+	}
+
+	summary, err := h.svc.ImportTransactions(r.Context(), txs, workers)
+	if err != nil {
+		writeFailure(w, err, "import transactions")
+		return
+	}
+	writeJSON(w, http.StatusOK, bulkResponseFrom(summary))
 }
 
 func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
